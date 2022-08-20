@@ -1,0 +1,12 @@
+downloads/
+.env
+*.env
+backups/
+env/pia
+env/privado
+downloads/
+config/
+nginx_data
+nginx-data/
+.config/
+.backups/

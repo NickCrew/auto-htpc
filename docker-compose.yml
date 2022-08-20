@@ -1,0 +1,224 @@
+---
+version: '3.3'
+services:
+  # Index Manager
+  prowlarr:
+    image: linuxserver/prowlarr:develop
+    container_name: prowlarr
+    links:
+      - "alpine-qbittorrent-openvpn:qbit"
+      - "sonarr:sonarr"
+      - "radarr:radarr"
+      - "sabnzbd:sabnzbd"
+    volumes:
+      - "./config/prowlarr:/config"
+    environment:
+      - PUID=${PUID:-1029}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/New_York}
+    ports:
+      - "9696:9696"
+    restart: unless-stopped
+
+  # Movie Library Manager
+  radarr:
+    image: linuxserver/radarr:latest
+    container_name: radarr
+    links:
+      - "sabnzbd:sabnzbd"
+      - "alpine-qbittorrent-openvpn:qbit"
+
+    volumes:
+      - "./downloads:/downloads"
+      - "/htpc_data2/media/Movies:/movies"
+      - "./config/radarr:/config"
+    environment:
+      - PUID=${PUID:-1029}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/New_York}
+    ports:
+      - "7878:7878"
+    restart: unless-stopped
+
+  # TV Show Library Manager
+  sonarr:
+    image: linuxserver/sonarr:latest
+    container_name: sonarr
+    links:
+      - "sabnzbd:sabnzbd"
+      - "alpine-qbittorrent-openvpn:qbit"
+    volumes:
+      - "./downloads:/downloads"
+      - "/htpc_data/media/TV Shows:/tv"
+      - "/htpc_data2/media/Anime:/anime"
+      - "./config/sonarr:/config"
+    environment:
+      - PUID=${PUID:-1029}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/New_York}
+    ports:
+      - "8989:8989"
+    restart: unless-stopped
+
+  # Ebook manager
+  readarr:
+    image: hotio/readarr:nightly
+    container_name: readarr
+    volumes:
+      - "./config/readarr:/config"
+      - "books:/books"
+      - "./downloads:/downloads"
+    environment:
+      - PUID=${PUID:-1029}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/New_York}
+    ports:
+      - "8787:8787"
+    restart: unless-stopped
+
+  # Subtitle manager
+  bazarr:
+    image: linuxserver/bazarr
+    container_name: bazarr
+    links:
+      - "sonarr:sonarr"
+      - "radarr:radarr"
+    volumes:
+      - "./config/bazarr:/config"
+      - "/htpc_data2/media/Movies:/movies"
+      - "/htpc_data/media/TV Shows:/tv"
+      - "/htpc_data2/media/Anime:/anime"
+    environment:
+      - HOME="/root"
+      - PUID=${PUID:-1029}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/New_York}
+    ports:
+      - "6767:6767"
+    restart: unless-stopped
+
+  # Home Media Portal
+  organizr:
+    image: organizr/organizr
+    container_name: organizr
+    links:
+      - "sonarr:sonarr"
+      - "radarr:radarr"
+      - "bazarr:bazarr"
+      - "readarr:readarr"
+      - "prowlarr:prowlarr"
+      - "alpine-qbittorrent-openvpn:qbit"
+      - "overseer:overseerr"
+      - "sabnzbd:sabnzbd"
+    volumes:
+      - "./config/organizr:/config"
+    environment:
+      - PUID=${PUID:-1029}
+      - PGID=${PGID:-100}
+    ports:
+      - "5554:80"
+    restart: unless-stopped
+
+  # Request Manager
+  overseer:
+    image: linuxserver/overseerr
+    container_name: overseerr
+    links:
+      - "sonarr:sonarr"
+      - "radarr:radarr"
+    environment:
+      - PUID=${PUID:-1029}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ./config/overseerr:/config
+    ports:
+      - "5055:5055"
+    restart: unless-stopped
+
+  # Plex Dashboard
+  tautulli:
+    image: ghcr.io/tautulli/tautulli
+    container_name: tautulli
+    volumes:
+      - "./config/tautulli:/config"
+    environment:
+      - PUID=${PUID:-1029}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/New_York}
+    ports:
+      - 8181:8181
+    restart: unless-stopped   
+
+  # Usenet download client
+  sabnzbd:
+        image: linuxserver/sabnzbd:latest
+        container_name: sabnzbd
+        volumes:
+          - "./downloads:/downloads"
+          - "./config/sabnzbd:/config"
+        environment:
+          - PUID=${PUID:-1029}
+          - PGID=${PGID:-100}
+          - TZ=${TZ:-America/New_York}
+        ports:
+          - "28080:8080"
+          - "29090:9090"
+        restart: unless-stopped
+
+  alpine-qbittorrent-openvpn:
+    image: guillaumedsde/alpine-qbittorrent-openvpn:latest
+    container_name: qbit
+    volumes:
+      - "./downloads/torrents:/downloads"
+      - "./config/qbit:/config"
+      - "/etc/localtime:/etc/localtime:ro"
+    env_file:
+      - ./env/pia
+    environment:
+      - PUID=${PUID:-1029}
+      - PGID=${PGID:-100}
+      - LAN=192.168.0.0/16
+    ports:
+      - "8888:8080"
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped
+
+  flood:
+    image: jesec/flood:latest
+    container_name: flood
+    links:
+      - "alpine-qbittorrent-openvpn:qbit"
+    volumes:
+      - "./downloads/torrents:/data"
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  # Proxy Manager
+  nginx:
+     image: jc21/nginx-proxy-manager:latest
+     container_name: nginx
+     volumes:
+       - ".config/nginx-data:/data"
+     ports:
+       - "80:80"
+       - "443:443"
+       - "81:81"
+     restart: unless-stopped
+
+
+volumes:
+  movies:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=nas.lan.piggah.xyz,rw,soft
+      device: ":/volume1/media/Movies"
+  books:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=nas.lan.piggah.xyz,rw,soft
+      device: ":/volume1/calibre/books"

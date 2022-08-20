@@ -1,0 +1,26 @@
+version: '3.9'
+services:
+  sonarr_anime:
+    image: linuxserver/sonarr:latest
+    container_name: sonarr_anime
+    links:
+      - "sabnzbd:sabnzbd"
+    volumes:
+      - "./downloads:/downloads"
+      - "/htpc_data2/media/Anime:/anime"
+      - "./config/sonarr_anime:/config"
+    environment:
+      - PUID=${PUID:-1029}
+      - PGID=${PGID:-100}
+      - TZ=${TZ:-America/New_York}
+    ports:
+      - "8988:8988"
+    restart: unless-stopped
+
+volumes:
+  anime:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=nas.lan.piggah.xyz,rw,soft
+      device: ":/volume1/media/Anime"
