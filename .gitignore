@@ -10,3 +10,5 @@ nginx_data
 nginx-data/
 .config/
 .backups/
+plexlogs/
+logs/
