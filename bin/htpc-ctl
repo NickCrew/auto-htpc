@@ -1,0 +1,10 @@
+#!/bin/bash
+
+here=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+proj_dir=$(dirname $here)
+
+docker-compose \
+	--project-directory=${proj_dir} \
+	--file docker-compose.yml \
+	--file docker-compose.admin.yml \
+	"$@"

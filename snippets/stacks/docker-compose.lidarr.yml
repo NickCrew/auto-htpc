@@ -1,24 +1,24 @@
----
-
-version: '3.9'
 services:
-  lidarr:
+lidarr:
     image: linuxserver/lidarr:latest
     container_name: lidarr
+    env_file:
+      - common.env
     volumes:
       - "./config/lidarr:/config"
       - "music:/music"
-    environment:
-      - PUID=${PUID:-1029}
-      - PGID=${PGID:-100}
-      - TZ=${TZ:-America/New_York}
     ports:
       - "8686:8686"
-       
+    restart: unless-stopped
+ 
+
 volumes:
-  music:
+  # Media Network File Share
+  nasmusic:
     driver: local
     driver_opts:
       type: nfs
-      o: addr=nas.lan.piggah.xyz,rw,soft
+      o: addr=nas.home.arpa,rw,soft
       device: ":/volume1/media/Music"
+
+

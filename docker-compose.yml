@@ -1,20 +1,20 @@
+---
+#################################################### 
+# HTPC (Home Theatre PC) Stack
+# 
+# (Almost) everything you need for a fully-automated
+# locally-controlled home theatre system
+#################################################### 
 services:
 
   # Index Manager
   prowlarr:
     image: linuxserver/prowlarr:develop
     container_name: prowlarr
-    links:
-      - "alpine-qbittorrent-openvpn:qbit"
-      - "sonarr:sonarr"
-      - "radarr:radarr"
-      - "sabnzbd:sabnzbd"
+    env_file:
+      - common.env
     volumes:
       - "./config/prowlarr:/config"
-    environment:
-      - PUID
-      - PGID
-      - TZ
     ports:
       - "9696:9696"
     restart: unless-stopped
@@ -23,18 +23,13 @@ services:
   radarr:
     image: linuxserver/radarr:latest
     container_name: radarr
-    links:
-      - "sabnzbd:sabnzbd"
-      - "alpine-qbittorrent-openvpn:qbit"
+    env_file:
+      - common.env
     volumes:
-      - "./downloads/torrents:/downloads/torrents"
-      - "/htpc_downloads/usenet:/downloads/usenet"
-      - "/htpc_data2/media/Movies:/movies"
+      - "/bulk/htpc_media/Downloads/torrents:/downloads/torrents"
+      - "/bulk/htpc_media/Downloads/usenet:/downloads/usenet"
+      - "/bulk/htpc_media/Movies:/movies"
       - "./config/radarr:/config"
-    environment:
-      - PUID
-      - PGID
-      - TZ
     ports:
       - "7878:7878"
     restart: unless-stopped
@@ -43,157 +38,117 @@ services:
   sonarr:
     image: linuxserver/sonarr:latest
     container_name: sonarr
-    links:
-      - "sabnzbd:sabnzbd"
-      - "alpine-qbittorrent-openvpn:qbit"
+    env_file:
+      - common.env
     volumes:
-      - "./downloads/torrents:/downloads/torrents"
-      - "/htpc_downloads/usenet:/downloads/usenet"
-      - "/htpc_data/media/TV Shows:/tv"
-      - "/htpc_data2/media/Anime:/anime"
+      - "/bulk/htpc_media/Downloads/torrents:/downloads/torrents"
+      - "/bulk/htpc_media/Downloads/usenet:/downloads/usenet"
+      - "/bulk/htpc_media/TV Shows:/tv"
+      - "/bulk/htpc_media/Anime:/anime"
       - "./config/sonarr:/config"
-    environment:
-      - PUID
-      - PGID
-      - TZ
     ports:
       - "8989:8989"
-    restart: unless-stopped
-
-  # Ebook manager
-  readarr:
-    image: hotio/readarr:nightly
-    container_name: readarr
-    volumes:
-      - "./config/readarr:/config"
-      - "./downloads:/downloads"
-    environment:
-      - PUID
-      - PGID
-      - TZ
-    ports:
-      - "8787:8787"
     restart: unless-stopped
 
   # Subtitle manager
   bazarr:
     image: linuxserver/bazarr
     container_name: bazarr
-    links:
-      - "sonarr:sonarr"
-      - "radarr:radarr"
     volumes:
       - "./config/bazarr:/config"
-      - "/htpc_data2/media/Movies:/movies"
-      - "/htpc_data/media/TV Shows:/tv"
-      - "/htpc_data2/media/Anime:/anime"
-    environment:
-      - HOME="/root"
-      - PUID
-      - PGID
-      - TZ
+      - "/bulk/htpc_media/TV Shows:/tv"
+      - "/bulk/htpc_media/Movies:/movies"
+      - "/bulk/htpc_media/Anime:/anime"
+    env_file:
+      - common.env
     ports:
       - "6767:6767"
     restart: unless-stopped
 
-  # Home Media Portal
-  organizr:
-    image: organizr/organizr
-    container_name: organizr
-    links:
-      - "sonarr:sonarr"
-      - "radarr:radarr"
-      - "bazarr:bazarr"
-      - "readarr:readarr"
-      - "prowlarr:prowlarr"
-      - "alpine-qbittorrent-openvpn:qbit"
-      - "overseer:overseerr"
-      - "sabnzbd:sabnzbd"
-    volumes:
-      - "./config/organizr:/config"
-    environment:
-      - PUID
-      - PGID
-    ports:
-      - "5554:80"
-    restart: unless-stopped
-
+    
   # Request Manager
-  overseer:
+  overseerr:
     image: linuxserver/overseerr
     container_name: overseerr
-    links:
-      - "sonarr:sonarr"
-      - "radarr:radarr"
-    environment:
-      - PUID
-      - PGID
-      - TZ
+    env_file:
+      - common.env
     volumes:
-      - ./config/overseerr:/config
+      - "./config/overseerr:/config"
     ports:
       - "5055:5055"
     restart: unless-stopped
 
-  # Plex Dashboard
+  # Plex Metrics Dashboard
   tautulli:
     image: ghcr.io/tautulli/tautulli
     container_name: tautulli
+    env_file:
+      - common.env
     volumes:
       - "./config/tautulli:/config"
       - "./logs/plex/:/mnt/plexlogs/"
-    environment:
-      - PUID
-      - PGID
-      - TZ
     ports:
-      - 8181:8181
+      - "8181:8181"
     restart: unless-stopped   
 
   # Usenet download client
   sabnzbd:
         image: linuxserver/sabnzbd:latest
         container_name: sabnzbd
+        env_file:
+          - common.env
         volumes:
-          - "/htpc_downloads:/downloads"
+          - "/fast/downloads/usenet/incomplete:/downloads/incomplete"
+          - "/bulk/htpc_media/Downloads/usenet:/downloads/complete"
           - "./config/sabnzbd:/config"
-        environment:
-          - PUID
-          - PGID
-          - TZ
         ports:
           - "28080:8080"
           - "29090:9090"
         restart: unless-stopped
 
-  alpine-qbittorrent-openvpn:
+  # Bittorrent download client
+  qbit:
     image: guillaumedsde/alpine-qbittorrent-openvpn:latest
     container_name: qbit
     volumes:
-      - "./downloads/torrents:/downloads"
+      - "/bulk/htpc_media/Downloads/torrents:/downloads"
       - "./config/qbit:/config"
       - "/etc/localtime:/etc/localtime:ro"
     env_file:
-      - ./env/pia
+      - common.env
     environment:
-      - PUID
-      - PGID
-      - LAN=192.168.0.0/16
+      OPENVPN_PROVIDER: ${OPENVPN_PROVIDER:-PIA}
+      OPENVPN_CONFIG: ${OPENVPN_CONFIG:-spain}
+      OPENVPN_USERNAME: ${OPENVPN_USERNAME}
+      OPENVPN_PASSWORD: ${OPENVPN_PASSWORD}
     ports:
       - "8888:8080"
     cap_add:
       - NET_ADMIN
     restart: unless-stopped
 
+  # Bittorrent Frontend
   flood:
     image: jesec/flood:latest
     container_name: flood
-    links:
-      - "alpine-qbittorrent-openvpn:qbit"
+    depends_on:
+      - qbit
     volumes:
-      - "./downloads/torrents:/data"
+      - "/bulk/htpc_media/Downloads/torrents:/data"
     ports:
-      - "3000:3000"
+      - "3333:3000"
     restart: unless-stopped
+
+  # Auto-healing service
+  htpc_autoheal:
+    image: willfarrell/autoheal
+    container_name: htpc_autoheal
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: "all"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    restart: unless-stopped
+
+
 
 

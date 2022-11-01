@@ -1,0 +1,23 @@
+services:
+  readarr:
+    image: hotio/readarr:nightly
+    container_name: readarr
+    env_file:
+      - common.env
+    volumes:
+      - "nasbooks:/books"
+      - "./config/readarr:/config"
+      - "/bulk/htpc_media/Downloads/usenet:/downloads/usenet"
+      - "/bulk/htpc_media/Downloads/torrents:/downloads/torrents"
+    ports:
+      - "8787:8787"
+    restart: unless-stopped
+
+volumes:
+  # EBook Network File Share
+  nasbooks:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=nas.home.arpa,rw,soft
+      device: ":/volume1/calibre"
