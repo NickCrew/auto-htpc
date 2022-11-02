@@ -66,18 +66,6 @@ services:
     restart: unless-stopped
 
     
-  # Request Manager
-  overseerr:
-    image: linuxserver/overseerr
-    container_name: overseerr
-    env_file:
-      - common.env
-    volumes:
-      - "./config/overseerr:/config"
-    ports:
-      - "5055:5055"
-    restart: unless-stopped
-
   # Plex Metrics Dashboard
   tautulli:
     image: ghcr.io/tautulli/tautulli
@@ -139,6 +127,28 @@ services:
       - "3333:3000"
     restart: unless-stopped
 
+
+  taisun:
+    image: linuxserver/taisun
+    container_name: taison
+    ports:
+      - "3456:3000"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    network_mode: bridge
+    restart: unless-stopped
+
+  organizr:
+    image: organizr/organizr
+    container_name: organizr
+    env_file:
+      - common.env
+    ports:
+      - "38080:80"
+    volumes:
+      - "./config/organizr:/config"
+    restart: unless-stopped
+
   # Auto-healing service
   htpc_autoheal:
     image: willfarrell/autoheal
@@ -148,6 +158,31 @@ services:
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
     restart: unless-stopped
+
+  portainer:
+    image: portainer/portainer-ce
+    container_name: portainer
+    volumes:
+      - portainer_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "9000:9000"
+    restart: unless-stopped
+
+
+volumes:
+  portainer_data:
+    external: true
+
+
+  mongo_data:
+    external: true
+
+  mongo_configdb_data:
+    external: true
+
+
+
 
 
 
