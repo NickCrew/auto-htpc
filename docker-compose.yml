@@ -127,7 +127,7 @@ services:
       - "3333:3000"
     restart: unless-stopped
 
-
+  # Simple single-host container manager
   taisun:
     image: linuxserver/taisun
     container_name: taison
@@ -138,6 +138,7 @@ services:
     network_mode: bridge
     restart: unless-stopped
 
+  # HTPC service heompage
   organizr:
     image: organizr/organizr
     container_name: organizr
@@ -159,29 +160,7 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock"
     restart: unless-stopped
 
-  portainer:
-    image: portainer/portainer-ce
-    container_name: portainer
-    volumes:
-      - portainer_data:/data
-      - /var/run/docker.sock:/var/run/docker.sock
-    ports:
-      - "9000:9000"
-    restart: unless-stopped
-
-
-volumes:
-  portainer_data:
-    external: true
-
-
-  mongo_data:
-    external: true
-
-  mongo_configdb_data:
-    external: true
-
-
+  
 
 
 
