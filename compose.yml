@@ -1,0 +1,310 @@
+---
+#################################################### 
+# HTPC (Home Theatre PC) Stack
+# 
+# (Almost) everything you need for a fully-automated,
+# locally-controlled home theatre system
+#
+# CONFIGURATION:
+#
+#   Use the *.env files as needed to customize the environment.
+#
+# AVAILABLE PROFILES:
+#
+#   - nzb       (usenet)
+#   - bt        (bittorrent)
+#   - music     (lidarr)
+#   - books     (readarr)
+#   - subs      (bazarr)
+#   - metrics   (tautulli)
+#   - requests  (overseer*)
+#   - admin     (portainer)
+#   - dashboard (organizr)
+#   - opt       (extra functionality, usually with another profile)
+#
+# NOTES:
+#
+#   * Petio is the recommended request portal but we do not install it
+#     as a docker service
+#
+#
+#################################################### 
+
+services:
+  # 
+  # Index Manager
+  #
+  prowlarr:
+    image: linuxserver/prowlarr:develop
+    container_name: prowlarr
+    env_file:
+      - common.env
+    volumes:
+      - "./config/prowlarr:/config"
+    ports:
+      - "9696:9696"
+    restart: unless-stopped
+
+  #
+  # Movie Library Manager
+  #
+  radarr:
+    image: linuxserver/radarr:latest
+    container_name: radarr
+    env_file:
+      - common.env
+    volumes:
+      - "/bulk/htpc_media/Downloads/torrents:/downloads/torrents"
+      - "/bulk/htpc_media/Downloads/usenet:/downloads/usenet"
+      - "/bulk/htpc_media/Movies:/movies"
+      - "./config/radarr:/config"
+    ports:
+      - "7878:7878"
+    restart: unless-stopped
+
+  #
+  # TV Show Library Manager
+  #
+  sonarr:
+    image: linuxserver/sonarr:develop
+    container_name: sonarr
+    env_file:
+      - common.env
+    volumes:
+      - "/bulk/htpc_media/Downloads/torrents:/downloads/torrents"
+      - "/bulk/htpc_media/Downloads/usenet:/downloads/usenet"
+      - "/bulk/htpc_media/TV Shows:/tv"
+      - "/bulk/htpc_media/Anime:/anime"
+      - "./config/sonarr:/config"
+    ports:
+      - "8989:8989"
+    restart: unless-stopped
+
+  #
+  # Usenet download client
+  #
+  sabnzbd:
+    image: linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    env_file:
+      - common.env
+    volumes:
+      - "./downloads:/downloads/incomplete"
+      - "/bulk/htpc_media/Downloads/usenet:/downloads/complete"
+      - "./config/sabnzbd:/config"
+    ports:
+      - "18080:8080"
+      - "19090:9090"
+    profiles:
+      - nzb
+    restart: unless-stopped
+
+  #
+  # Container orchestration
+  #
+  portainer:
+    image: portainer/portainer-ce
+    container_name: portainer
+    environment:
+      VIRTUAL_PORT: 9000
+      VIRTUAL_HOST: htpc.home.arpa
+    volumes:
+      - portainer_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "9000:9000"
+    profiles:
+      - admin
+    restart: unless-stopped
+
+  #
+  # Subtitle manager
+  #
+  bazarr:
+    image: linuxserver/bazarr
+    container_name: bazarr
+    volumes:
+      - "./config/bazarr:/config"
+      - "/bulk/htpc_media/TV Shows:/tv"
+      - "/bulk/htpc_media/Movies:/movies"
+      - "/bulk/htpc_media/Anime:/anime"
+    env_file:
+      - common.env
+    ports:
+      - "6767:6767"
+    profiles:
+      - subs
+    restart: unless-stopped
+
+  # 
+  # Plex Metrics Dashboard
+  #
+  tautulli:
+    image: ghcr.io/tautulli/tautulli
+    container_name: tautulli
+    env_file:
+      - common.env
+    volumes:
+      - "./config/tautulli:/config"
+      - "./logs/plex/:/mnt/plexlogs/"
+    ports:
+      - "8181:8181"
+    profiles:
+      - metrics
+    restart: unless-stopped   
+
+  #
+  # OPTIONAL: Alternate Requests dashboard 
+  #
+  overseerr:
+    image: sctx/overseerr:latest
+    container_name: overseerr
+    environment:
+      - LOG_LEVEL=debug
+      - TZ=America/New_York
+    ports:
+      - 5055:5055
+    volumes:
+      - "./config/overseerr:/app/config"
+    profiles:
+      - requests
+    restart: unless-stopped
+
+  #
+  # OPTIONAL: Manual usenet search interface
+  #
+  nzbhydra2:
+    image: lscr.io/linuxserver/nzbhydra2:latest
+    container_name: nzbhydra2
+    env_file:
+      - common.env
+    volumes:
+      - "./config/nzbhydra2:/config"
+      - "/nzb/download:/downloads"
+    ports:
+      - "5076:5076"
+    profiles:
+      - opt
+      - nzb
+    restart: unless-stopped
+
+  #
+  # Bittorrent download client
+  #
+  qbit:
+    image: guillaumedsde/alpine-qbittorrent-openvpn:latest
+    container_name: qbit
+    volumes:
+      - "/bulk/htpc_media/Downloads/torrents:/downloads"
+      - "./config/qbit:/config"
+      - "/etc/localtime:/etc/localtime:ro"
+    env_file:
+      - common.env
+    environment:
+      OPENVPN_PROVIDER: ${OPENVPN_PROVIDER:-PIA}
+      OPENVPN_CONFIG: ${OPENVPN_CONFIG:-spain}
+      OPENVPN_USERNAME: ${OPENVPN_USERNAME}
+      OPENVPN_PASSWORD: ${OPENVPN_PASSWORD}
+    ports:
+      - "8888:8080"
+    cap_add:
+      - NET_ADMIN
+    profiles:
+      - bt
+    restart: unless-stopped
+
+  #
+  # Bittorrent Frontend
+  #
+  flood:
+    image: jesec/flood:latest
+    container_name: flood
+    depends_on:
+      - qbit
+    volumes:
+      - "/bulk/htpc_media/Downloads/torrents:/data"
+    ports:
+      - "3333:3000"
+    profiles: 
+      - bt
+      - opt
+    restart: unless-stopped
+
+  #
+  # User and Admin Portal/Home page
+  #
+  organizr:
+    image: organizr/organizr
+    container_name: organizr
+    env_file:
+      - common.env
+    ports:
+      - "38080:80"
+    volumes:
+      - "./config/organizr:/config"
+    profiles:
+      - dashboard
+    restart: unless-stopped
+
+  #
+  # Music Library Manager
+  #
+  lidarr:
+    image: linuxserver/lidarr:latest
+    container_name: lidarr
+    env_file:
+      - common.env
+    volumes:
+      - "./config/lidarr:/config"
+      - "nasmusic:/music"
+    ports:
+      - "8686:8686"
+    profiles:
+      - music
+    restart: unless-stopped
+ 
+  #
+  # eBook Library Manager
+  # 
+  readarr:
+    image: hotio/readarr:nightly
+    container_name: readarr
+    env_file:
+      - common.env
+    volumes:
+      - "nasbooks:/books"
+      - "./config/readarr:/config"
+      - "/bulk/htpc_media/Downloads/usenet:/downloads/usenet"
+      - "/bulk/htpc_media/Downloads/torrents:/downloads/torrents"
+    ports:
+      - "8787:8787"
+    profiles:
+      - books
+    restart: unless-stopped
+
+volumes:
+  # EBook Network File Share
+  nasbooks:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=nas.home.arpa,rw,soft
+      device: ":/volume1/calibre"
+
+  # Media Network File Share
+  nasmusic:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=nas.home.arpa,rw,soft
+      device: ":/volume1/media/Music"
+
+  # Portainer data
+  portainer_data:
+    external: true
+
+
+
+
+
+

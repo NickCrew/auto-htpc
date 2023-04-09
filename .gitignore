@@ -2,11 +2,13 @@
 
 !.gitignore
 !docker-compose.*.yml
+!compose.yml
 !docker-compose.yml
 !common.env
 !README.md
 
 !bin/
+!bin/htpc-svcmgr
 !/snippets/
 !/snippets/**/*.conf
 !snippets/nginx/
