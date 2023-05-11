@@ -1,39 +1,81 @@
 ---
-#################################################### 
-# HTPC (Home Theatre PC) Stack
-# 
+############################################ 
+#########  Home Theatre PC Stack  ##########
+############################################
+#
 # (Almost) everything you need for a fully-automated,
-# locally-controlled home theatre system
+# locally-controlled home theater system. 
 #
-# CONFIGURATION:
 #
-#   Use the *.env files as needed to customize the environment.
+# --------
+# FEATURES
+# --------
 #
-# AVAILABLE PROFILES:
+# The following routine can usually be accomplished,
+# with zero human intervention after step 1, in about
+# 15 to 30 minutes*.
+# 
+#   1. User requests a title suggested by personalized
+#   recommendations in the request portal
 #
-#   - nzb       (usenet)
-#   - bt        (bittorrent)
-#   - music     (lidarr)
-#   - books     (readarr)
-#   - subs      (bazarr)
-#   - metrics   (tautulli)
-#   - requests  (overseer*)
-#   - admin     (portainer)
-#   - dashboard (organizr)
-#   - opt       (extra functionality, usually with another profile)
+#   2. The library manager receives the request and 
+#   marks all parts of the tile as 'wanted', then begins
+#   searching using your choice of indexers (bitorrent or usenet).
 #
-# NOTES:
+#   3. When an eligible candidate is found, the download client
+#   is sent the request to fetch the title. 
+#
+#   4. The library inventory is updated 
+#   and renames the file(s) to a standard convention
+#   easily understood by Plex.
+#
+#   5. Plex scans the library file system and makes the
+#   title available in one of its libraries. 
+#   Art, trailers, subtitles, and other metadata are 
+#   downloaded.
+#
+#   * Depending how fast and uncongested your internet connection is
+#
+#
+# --------
+# PROFILES
+# --------
+#
+#   - default     (prowlarr, sonarr, radarr)
+#   - nzb         (sabnzbd)
+#   - bt          (qbittorrent)
+#   - music       (lidarr)
+#   - books       (readarr)
+#   - subs        (bazarr)
+#   - metrics     (tautulli)
+#   - requests*   (overseer)
+#   - admin       (portainer)
+#   - dashboard   (organizr)
+#   - opt         (extra functionality)
 #
 #   * Petio is the recommended request portal but we do not install it
 #     as a docker service
 #
 #
-#################################################### 
+# --------------
+# CONFIGURATION
+# --------------
+#
+#   Use the *.env files as needed to customize the environment.
+#   The '.env' file, where it is a hidden-filed named 'env', is 
+#   explicitly ignored from this repo. It applies to Docker compose
+#   itself, NOT the container instances themselves. 
+#
+#
+############################################# 
 
+############################################
+###############   SERVICES   ###############
+############################################
 services:
-  # 
-  # Index Manager
-  #
+  #=============================
+  # (core) Index Manager
+  #----------------------------
   prowlarr:
     image: linuxserver/prowlarr:develop
     container_name: prowlarr
@@ -45,9 +87,9 @@ services:
       - "9696:9696"
     restart: unless-stopped
 
-  #
-  # Movie Library Manager
-  #
+  #=============================
+  # (core) Movie Library Manager
+  #-----------------------------
   radarr:
     image: linuxserver/radarr:latest
     container_name: radarr
@@ -62,9 +104,9 @@ services:
       - "7878:7878"
     restart: unless-stopped
 
-  #
-  # TV Show Library Manager
-  #
+  #=============================
+  # (core) TV Show Library Manager
+  #----------------------------
   sonarr:
     image: linuxserver/sonarr:develop
     container_name: sonarr
@@ -79,10 +121,26 @@ services:
     ports:
       - "8989:8989"
     restart: unless-stopped
+  
+  #============================
+  # (core) Guide Sync
+  #----------------------------
+  recyclarr:
+    image: recyclarr/recyclarr
+    container_name: recyclarr
+    user: 1000:1000
+    volumes: 
+      - recyclarr_config:/config
+      # - "./config/recyclarr:/config"
+    environment: 
+      - TZ=${TZ:-America/New_York}
+      - RECYCLARR_CREATE_CONFIG=true
+    restart: unless-stopped
 
-  #
-  # Usenet download client
-  #
+
+  #=============================
+  # (nzb) Usenet download client
+  #----------------------------
   sabnzbd:
     image: linuxserver/sabnzbd:latest
     container_name: sabnzbd
@@ -99,9 +157,9 @@ services:
       - nzb
     restart: unless-stopped
 
-  #
-  # Container orchestration
-  #
+  #=============================
+  # (admin) Container orchestration
+  #-----------------------------
   portainer:
     image: portainer/portainer-ce
     container_name: portainer
@@ -117,9 +175,9 @@ services:
       - admin
     restart: unless-stopped
 
-  #
-  # Subtitle manager
-  #
+  #=============================
+  # (subs) Subtitle manager
+  #-----------------------------
   bazarr:
     image: linuxserver/bazarr
     container_name: bazarr
@@ -136,9 +194,9 @@ services:
       - subs
     restart: unless-stopped
 
-  # 
-  # Plex Metrics Dashboard
-  #
+  #=============================
+  # (metrics) Plex Metrics Dashboard
+  #-----------------------------
   tautulli:
     image: ghcr.io/tautulli/tautulli
     container_name: tautulli
@@ -153,9 +211,9 @@ services:
       - metrics
     restart: unless-stopped   
 
-  #
-  # OPTIONAL: Alternate Requests dashboard 
-  #
+  #=============================
+  # (opt) Alternate Requests dashboard 
+  #-----------------------------
   overseerr:
     image: sctx/overseerr:latest
     container_name: overseerr
@@ -170,9 +228,9 @@ services:
       - requests
     restart: unless-stopped
 
-  #
-  # OPTIONAL: Manual usenet search interface
-  #
+  #=============================
+  # (nzb, opt) Manual usenet search interface
+  #-----------------------------
   nzbhydra2:
     image: lscr.io/linuxserver/nzbhydra2:latest
     container_name: nzbhydra2
@@ -188,9 +246,9 @@ services:
       - nzb
     restart: unless-stopped
 
-  #
-  # Bittorrent download client
-  #
+  #=============================
+  # (bt) Bittorrent download client
+  #-----------------------------
   qbit:
     image: guillaumedsde/alpine-qbittorrent-openvpn:latest
     container_name: qbit
@@ -213,9 +271,9 @@ services:
       - bt
     restart: unless-stopped
 
-  #
-  # Bittorrent Frontend
-  #
+  #=============================
+  # (bt, opt) Bittorrent Frontend
+  #-----------------------------
   flood:
     image: jesec/flood:latest
     container_name: flood
@@ -230,9 +288,9 @@ services:
       - opt
     restart: unless-stopped
 
-  #
-  # User and Admin Portal/Home page
-  #
+  #=============================
+  # (dashboard) User and Admin Portal/Home page
+  #-----------------------------
   organizr:
     image: organizr/organizr
     container_name: organizr
@@ -246,9 +304,9 @@ services:
       - dashboard
     restart: unless-stopped
 
-  #
-  # Music Library Manager
-  #
+  #=============================
+  # (music) Music Library Manager
+  #-----------------------------
   lidarr:
     image: linuxserver/lidarr:latest
     container_name: lidarr
@@ -263,9 +321,9 @@ services:
       - music
     restart: unless-stopped
  
-  #
-  # eBook Library Manager
-  # 
+  #=============================
+  # (books) eBook Library Manager
+  #-----------------------------
   readarr:
     image: hotio/readarr:nightly
     container_name: readarr
@@ -282,8 +340,29 @@ services:
       - books
     restart: unless-stopped
 
+  portainer:
+    image: portainer/portainer-ce
+    container_name: portainer
+    environment:
+      VIRTUAL_PORT: 9000
+      VIRTUAL_HOST: htpc.home.arpa
+    volumes:
+      - portainer_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "9000:9000"
+    profiles:
+      - admin
+    restart: unless-stopped
+
+
+############################################
+###############   VOLUMES   ################
+############################################
 volumes:
+  #=============================
   # EBook Network File Share
+  #-----------------------------
   nasbooks:
     driver: local
     driver_opts:
@@ -291,7 +370,9 @@ volumes:
       o: addr=nas.home.arpa,rw,soft
       device: ":/volume1/calibre"
 
+  #=============================
   # Media Network File Share
+  #-----------------------------
   nasmusic:
     driver: local
     driver_opts:
@@ -299,10 +380,13 @@ volumes:
       o: addr=nas.home.arpa,rw,soft
       device: ":/volume1/media/Music"
 
+  #=============================
   # Portainer data
+  #-----------------------------
   portainer_data:
     external: true
 
+  recyclarr_config:
 
 
 

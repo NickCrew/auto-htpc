@@ -8,7 +8,8 @@
 !README.md
 
 !bin/
-!bin/htpc-svcmgr
+!bin/run.*
+!bin/*.sh
 !/snippets/
 !/snippets/**/*.conf
 !snippets/nginx/
