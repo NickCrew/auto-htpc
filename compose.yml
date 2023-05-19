@@ -1,98 +1,22 @@
----
-############################################ 
-#########  Home Theatre PC Stack  ##########
-############################################
-#
-# (Almost) everything you need for a fully-automated,
-# locally-controlled home theater system. 
-#
-#
-# --------
-# FEATURES
-# --------
-#
-# The following routine can usually be accomplished,
-# with zero human intervention after step 1, in about
-# 15 to 30 minutes*.
-# 
-#   1. User requests a title suggested by personalized
-#   recommendations in the request portal
-#
-#   2. The library manager receives the request and 
-#   marks all parts of the tile as 'wanted', then begins
-#   searching using your choice of indexers (bitorrent or usenet).
-#
-#   3. When an eligible candidate is found, the download client
-#   is sent the request to fetch the title. 
-#
-#   4. The library inventory is updated 
-#   and renames the file(s) to a standard convention
-#   easily understood by Plex.
-#
-#   5. Plex scans the library file system and makes the
-#   title available in one of its libraries. 
-#   Art, trailers, subtitles, and other metadata are 
-#   downloaded.
-#
-#   * Depending how fast and uncongested your internet connection is
-#
-#
-# --------
-# PROFILES
-# --------
-#
-#   - default     (prowlarr, sonarr, radarr)
-#   - nzb         (sabnzbd)
-#   - bt          (qbittorrent)
-#   - music       (lidarr)
-#   - books       (readarr)
-#   - subs        (bazarr)
-#   - metrics     (tautulli)
-#   - requests*   (overseer)
-#   - admin       (portainer)
-#   - dashboard   (organizr)
-#   - opt         (extra functionality)
-#
-#   * Petio is the recommended request portal but we do not install it
-#     as a docker service
-#
-#
-# --------------
-# CONFIGURATION
-# --------------
-#
-#   Use the *.env files as needed to customize the environment.
-#   The '.env' file, where it is a hidden-filed named 'env', is 
-#   explicitly ignored from this repo. It applies to Docker compose
-#   itself, NOT the container instances themselves. 
-#
-#
-############################################# 
 
-############################################
-###############   SERVICES   ###############
-############################################
 services:
-  #=============================
-  # (core) Index Manager
-  #----------------------------
+  # Indexer
   prowlarr:
     image: linuxserver/prowlarr:develop
     container_name: prowlarr
+    restart: unless-stopped
     env_file:
       - common.env
     volumes:
       - "./config/prowlarr:/config"
     ports:
       - "9696:9696"
-    restart: unless-stopped
 
-  #=============================
-  # (core) Movie Library Manager
-  #-----------------------------
+  # Movies
   radarr:
     image: linuxserver/radarr:latest
     container_name: radarr
+    restart: unless-stopped
     env_file:
       - common.env
     volumes:
@@ -102,14 +26,12 @@ services:
       - "./config/radarr:/config"
     ports:
       - "7878:7878"
-    restart: unless-stopped
 
-  #=============================
-  # (core) TV Show Library Manager
-  #----------------------------
+  # TV Shows
   sonarr:
     image: linuxserver/sonarr:develop
     container_name: sonarr
+    restart: unless-stopped
     env_file:
       - common.env
     volumes:
@@ -120,67 +42,37 @@ services:
       - "./config/sonarr:/config"
     ports:
       - "8989:8989"
-    restart: unless-stopped
-  
-  #============================
-  # (core) Guide Sync
-  #----------------------------
-  recyclarr:
-    image: recyclarr/recyclarr
-    container_name: recyclarr
-    user: 1000:1000
-    volumes: 
-      - recyclarr_config:/config
-      # - "./config/recyclarr:/config"
-    environment: 
-      - TZ=${TZ:-America/New_York}
-      - RECYCLARR_CREATE_CONFIG=true
-    restart: unless-stopped
 
-
-  #=============================
-  # (nzb) Usenet download client
-  #----------------------------
-  sabnzbd:
-    image: linuxserver/sabnzbd:latest
-    container_name: sabnzbd
+  # TV Shows
+  sonarr_anime:
+    image: linuxserver/sonarr:develop
+    container_name: sonarr_anime
+    restart: unless-stopped
     env_file:
       - common.env
     volumes:
-      - "./downloads:/downloads/incomplete"
-      - "/bulk/htpc_media/Downloads/usenet:/downloads/complete"
-      - "./config/sabnzbd:/config"
+      - "/bulk/htpc_media:/data"
+      - "./config/sonarr_anime:/config"
     ports:
-      - "18080:8080"
-      - "19090:9090"
-    profiles:
-      - nzb
+      - "8988:8989"
+ 
+  
+  # Sync TraSH Guides
+  recyclarr:
+    image: ghcr.io/recyclarr/recyclarr
+    container_name: recyclarr
     restart: unless-stopped
+    user: 1029:100
+    volumes: 
+      - "./config/recyclarr:/config"
+    environment: 
+      TZ: America/New_York
 
-  #=============================
-  # (admin) Container orchestration
-  #-----------------------------
-  portainer:
-    image: portainer/portainer-ce
-    container_name: portainer
-    environment:
-      VIRTUAL_PORT: 9000
-      VIRTUAL_HOST: htpc.home.arpa
-    volumes:
-      - portainer_data:/data
-      - /var/run/docker.sock:/var/run/docker.sock
-    ports:
-      - "9000:9000"
-    profiles:
-      - admin
-    restart: unless-stopped
-
-  #=============================
-  # (subs) Subtitle manager
-  #-----------------------------
+  # Subtitles
   bazarr:
     image: linuxserver/bazarr
     container_name: bazarr
+    restart: unless-stopped
     volumes:
       - "./config/bazarr:/config"
       - "/bulk/htpc_media/TV Shows:/tv"
@@ -190,159 +82,27 @@ services:
       - common.env
     ports:
       - "6767:6767"
-    profiles:
-      - subs
-    restart: unless-stopped
 
-  #=============================
-  # (metrics) Plex Metrics Dashboard
-  #-----------------------------
-  tautulli:
-    image: ghcr.io/tautulli/tautulli
-    container_name: tautulli
+  # Usenet (nzb) Download Client
+  sabnzbd:
+    image: linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    restart: unless-stopped
     env_file:
       - common.env
     volumes:
-      - "./config/tautulli:/config"
-      - "./logs/plex/:/mnt/plexlogs/"
+      - "./downloads:/downloads/incomplete"
+      - "/bulk/htpc_media/Downloads/usenet:/downloads/complete"
+      - "./config/sabnzbd:/config"
     ports:
-      - "8181:8181"
-    profiles:
-      - metrics
-    restart: unless-stopped   
+      - "18080:8080"
+      - "19090:9090"
 
-  #=============================
-  # (opt) Alternate Requests dashboard 
-  #-----------------------------
-  overseerr:
-    image: sctx/overseerr:latest
-    container_name: overseerr
-    environment:
-      - LOG_LEVEL=debug
-      - TZ=America/New_York
-    ports:
-      - 5055:5055
-    volumes:
-      - "./config/overseerr:/app/config"
-    profiles:
-      - requests
-    restart: unless-stopped
-
-  #=============================
-  # (nzb, opt) Manual usenet search interface
-  #-----------------------------
-  nzbhydra2:
-    image: lscr.io/linuxserver/nzbhydra2:latest
-    container_name: nzbhydra2
-    env_file:
-      - common.env
-    volumes:
-      - "./config/nzbhydra2:/config"
-      - "/nzb/download:/downloads"
-    ports:
-      - "5076:5076"
-    profiles:
-      - opt
-      - nzb
-    restart: unless-stopped
-
-  #=============================
-  # (bt) Bittorrent download client
-  #-----------------------------
-  qbit:
-    image: guillaumedsde/alpine-qbittorrent-openvpn:latest
-    container_name: qbit
-    volumes:
-      - "/bulk/htpc_media/Downloads/torrents:/downloads"
-      - "./config/qbit:/config"
-      - "/etc/localtime:/etc/localtime:ro"
-    env_file:
-      - common.env
-    environment:
-      OPENVPN_PROVIDER: ${OPENVPN_PROVIDER:-PIA}
-      OPENVPN_CONFIG: ${OPENVPN_CONFIG:-spain}
-      OPENVPN_USERNAME: ${OPENVPN_USERNAME}
-      OPENVPN_PASSWORD: ${OPENVPN_PASSWORD}
-    ports:
-      - "8888:8080"
-    cap_add:
-      - NET_ADMIN
-    profiles:
-      - bt
-    restart: unless-stopped
-
-  #=============================
-  # (bt, opt) Bittorrent Frontend
-  #-----------------------------
-  flood:
-    image: jesec/flood:latest
-    container_name: flood
-    depends_on:
-      - qbit
-    volumes:
-      - "/bulk/htpc_media/Downloads/torrents:/data"
-    ports:
-      - "3333:3000"
-    profiles: 
-      - bt
-      - opt
-    restart: unless-stopped
-
-  #=============================
-  # (dashboard) User and Admin Portal/Home page
-  #-----------------------------
-  organizr:
-    image: organizr/organizr
-    container_name: organizr
-    env_file:
-      - common.env
-    ports:
-      - "38080:80"
-    volumes:
-      - "./config/organizr:/config"
-    profiles:
-      - dashboard
-    restart: unless-stopped
-
-  #=============================
-  # (music) Music Library Manager
-  #-----------------------------
-  lidarr:
-    image: linuxserver/lidarr:latest
-    container_name: lidarr
-    env_file:
-      - common.env
-    volumes:
-      - "./config/lidarr:/config"
-      - "nasmusic:/music"
-    ports:
-      - "8686:8686"
-    profiles:
-      - music
-    restart: unless-stopped
- 
-  #=============================
-  # (books) eBook Library Manager
-  #-----------------------------
-  readarr:
-    image: hotio/readarr:nightly
-    container_name: readarr
-    env_file:
-      - common.env
-    volumes:
-      - "nasbooks:/books"
-      - "./config/readarr:/config"
-      - "/bulk/htpc_media/Downloads/usenet:/downloads/usenet"
-      - "/bulk/htpc_media/Downloads/torrents:/downloads/torrents"
-    ports:
-      - "8787:8787"
-    profiles:
-      - books
-    restart: unless-stopped
-
+  # Container Orchestration
   portainer:
     image: portainer/portainer-ce
     container_name: portainer
+    restart: unless-stopped
     environment:
       VIRTUAL_PORT: 9000
       VIRTUAL_HOST: htpc.home.arpa
@@ -351,44 +111,116 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "9000:9000"
-    profiles:
-      - admin
+
+  # Plex Metrics
+  tautulli:
+    image: ghcr.io/tautulli/tautulli
+    container_name: tautulli
+    restart: unless-stopped   
+    env_file:
+      - common.env
+    volumes:
+      - "./config/tautulli:/config"
+      - "./logs/plex/:/mnt/plexlogs/"
+    ports:
+      - "8181:8181"
+
+  pia:
+    image: j4ym0/pia-qbittorrent
+    container_name: pia
     restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - "/bulk/htpc_media:/data"
+      - "./config/pia:/config"
+    ports:
+      - 8888:8888
+    environment:
+      REGION: ${OPENVPN_CONFIG}
+      USER: ${OPENVPN_USERNAME}
+      PASSWORD: ${OPENVPN_PASSWORD}
+    profiles:
+      - bt
+
+  flood:
+    hostname: flood
+    image: jesec/flood
+    user: 1029:100
+    restart: unless-stopped
+    command: --port 3001 --allowedpath /data
+    environment:
+      HOME: /config
+    volumes:
+      - "./config/flood/config:/config"
+      - "/bulk/htpc_media:/data"
+    ports:
+      - 3001:3001
 
 
-############################################
-###############   VOLUMES   ################
-############################################
+  # Request Manager
+  overseerr:
+    image: sctx/overseerr:latest
+    container_name: overseerr
+    restart: unless-stopped
+    environment:
+      LOG_LEVEL: debug
+      TZ: America/New_York
+    ports:
+      - 5055:5055
+    volumes:
+      - "./config/overseerr:/app/config"
+
+  # Transcode engine
+  tdarr:
+    container_name: tdarr
+    image: ghcr.io/haveagitgat/tdarr:latest
+    network_mode: bridge
+    restart: unless-stopped
+    ports:
+      - 8265:8265 # webUI port
+      - 8266:8266 # server port
+      - 8267:8267 # Internal node port
+      - 8268:8268 # Example extra node port
+    env_file:
+      - common.env
+      - transcode.env
+    environment:
+      webUIPort: 8265
+      internalNode: true
+      nodeName: MyInternalNode
+    volumes:
+      - "./config/tdarr/server:/app/server"
+      - "./config/tdarr/config:/app/configs"
+      - "./config/tadarr/logs:/app/logs"
+      - "/bulk/htpc_media:/media"
+      - "/fast/vol2/transcode_cache:/temp"
+    profiles:
+      - transcode
+
+  tdarr-node:
+    container_name: tdarr-node
+    image: ghcr.io/haveagitgat/tdarr_node:latest
+    network_mode: service:tdarr
+    restart: unless-stopped
+    env_file:
+      - common.env
+      - transcode.env
+    environment:
+      nodeName: MainNode
+    volumes:
+      - "./config/tdarr/configs:/app/configs"
+      - "./config/tdarr/logs:/app/logs"
+      - "/bulk/htpc_media:/media"
+      - "/fast/vol2/transcode_cache:/temp"
+    profiles:
+      - transcode
+
 volumes:
-  #=============================
-  # EBook Network File Share
-  #-----------------------------
-  nasbooks:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: addr=nas.home.arpa,rw,soft
-      device: ":/volume1/calibre"
-
-  #=============================
-  # Media Network File Share
-  #-----------------------------
-  nasmusic:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: addr=nas.home.arpa,rw,soft
-      device: ":/volume1/media/Music"
-
-  #=============================
-  # Portainer data
-  #-----------------------------
   portainer_data:
     external: true
 
-  recyclarr_config:
-
-
-
+  recyclarr_data:
+    external: true
 
 
